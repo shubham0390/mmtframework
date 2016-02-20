@@ -3,79 +3,163 @@ package com.mmt.shubh.database;
 
 import com.mmt.shubh.util.DSUtil;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Created by shubham on 12/30/15.
  */
 public class QueryBuilder {
 
-    static final String SELECT = "SELECT";
-    static final String FROM = "FROM";
-    static final String ALL = "*";
-    static final String WHERE = "WHERE";
-    static final String SPACE = " ";
-    static final String SORT_BY = "ORDER BY";
-    static final String ASC = "ASC";
-    static final String DESC = "DESC";
+    public static final String SPACE = " ";
+    public static final int SORT_TYPE_ASC = 0;
+    public static final int SORT_TYPE_DESC = 1;
+    public static final char COMMA = ',';
 
+    private static final String SELECT = "SELECT";
+    private static final String FROM = "FROM";
+    private static final String ALL = "*";
+    private static final String WHERE = "WHERE";
+    private static final String SORT_BY = "ORDER BY";
+    private static final String ASC = "ASC";
+    private static final String DESC = "DESC";
+    private String mTableName;
 
-    static final char COMMA = ',';
+    private String[] mProjections;
 
-    static final int SORT_TYPE_ASC = 0;
-    static final int SORT_TYPE_DESC = 1;
+    private List<Selection> mSelections = new ArrayList<>();
 
-    private static StringBuilder createQuery(String tableName, String[] projection) {
+    private List<Join> mJoins = new ArrayList<>();
+
+    private List<OrderBy> mSortType;
+    private GroupBy mGroupBy;
+
+    private StringBuilder createQuery(String tableName, String[] projection) {
         StringBuilder sb = new StringBuilder();
         sb.append(SELECT);
         sb.append(SPACE);
+
+        //adding projection to query
         if (DSUtil.isArrayEmpty(projection)) {
             sb.append(ALL);
             sb.append(SPACE);
         } else {
-            arrayToString(sb, projection);
+            String prefix = "";
+            if (!DSUtil.isListEmpty(mJoins)) {
+                prefix = mTableName + ".";
+            }
+            arrayToString(sb, projection, prefix);
             sb.append(SPACE);
         }
+
+        //add join projection here /
+        for (Join join : mJoins) {
+            createJoinProjection(sb, join);
+        }
+
         sb.append(FROM);
         sb.append(SPACE);
         sb.append(tableName);
         return sb;
     }
 
-    public static String createSelectQuery(String tableName, String[] projection) {
+    private void createJoinProjection(StringBuilder sb, Join join) {
+        arrayToString(sb, join.mProjection, join.mTableName);
+    }
+
+    public String createSelectQuery(String tableName, String[] projection) {
         StringBuilder sb = createQuery(tableName, projection);
         sb.append(SPACE);
         return sb.toString();
     }
 
-    public static String createSelectQuery(String tableName, String[] projection, String[] selections) {
-        StringBuilder sb = createQuery(tableName, projection);
-        if (!DSUtil.isArrayEmpty(selections)) {
-            sb.append(SPACE);
-            sb.append(WHERE);
-            sb.append(SPACE);
-            arrayToString(sb, selections);
-            sb.append(SPACE);
-        }
-        return sb.toString();
-    }
 
-    public static String createSelectQuery(String tableName, String[] projection, String[] selections, String sortColumn, int sortType) {
-        StringBuilder sb = new StringBuilder(createSelectQuery(tableName, projection, selections));
-        sb.append(SPACE);
-        sb.append(SORT_BY);
-        sb.append(SPACE);
-        sb.append(sortColumn);
-        sb.append(SPACE);
-        sb.append(sortType == SORT_TYPE_ASC ? ASC : DESC);
-        sb.append(SPACE);
-        return sb.toString();
-    }
-
-
-    public static void arrayToString(StringBuilder sb, Object[] projection) {
+    public void arrayToString(StringBuilder sb, Object[] projection, String prefix) {
         for (int i = 0; i < projection.length; i++) {
+            sb.append(prefix);
             sb.append(projection[i]);
             if (i < projection.length - 1)
                 sb.append(COMMA);
         }
     }
+
+    /**
+     * Set tale name to database query.
+     *
+     * @param tableName - name of the table on which query will execute.
+     * @return {@link QueryBuilder}
+     */
+    public QueryBuilder addFrom(String tableName) {
+        mTableName = tableName;
+        return this;
+    }
+
+    public QueryBuilder addProjection(String[] projection) {
+        mProjections = projection;
+        return this;
+    }
+
+    public QueryBuilder addSelection(Selection selection) {
+        mSelections.add(selection);
+        return this;
+    }
+
+
+    public QueryBuilder addSortType(OrderBy sortType) {
+        if (DSUtil.isListEmpty(mSortType)) {
+            mSortType = new ArrayList<>();
+        }
+        mSortType.add(sortType);
+        return this;
+    }
+
+    public QueryBuilder addJoin(Join join) {
+        mJoins.add(join);
+        return this;
+    }
+
+    public QueryBuilder addGroupBy(GroupBy groupBy) {
+        mGroupBy = groupBy;
+        return this;
+    }
+
+    private void createSelection(StringBuilder sb) {
+        for (Selection selection : mSelections) {
+            selection.build(sb, mTableName);
+        }
+    }
+
+    private void createJoin(StringBuilder sb) {
+        for (Join join : mJoins) {
+            join.build(sb, mTableName);
+        }
+    }
+
+    private void createSortType() {
+
+    }
+
+    private void createGroupBy() {
+
+    }
+
+
+    public String build() {
+        StringBuilder sb = createQuery(mTableName, mProjections);
+        if (DSUtil.isListEmpty(mJoins)) {
+            createJoin(sb);
+        }
+        if (DSUtil.isListEmpty(mSelections)) {
+            createSelection(sb);
+        }
+        if (!DSUtil.isListEmpty(mSortType)) {
+            createSortType();
+        }
+        if (mGroupBy != null) {
+            createGroupBy();
+        }
+        return sb.toString();
+    }
+
+
 }

@@ -33,6 +33,9 @@ public class ListRecyclerView extends RecyclerView {
     }
 
     private void init(Context context) {
+        if(isInEditMode()){
+            return;
+        }
         mItemClickSupport = ItemClickSupport.addTo(this);
         setLayoutManager(new LinearLayoutManager(context));
         addItemDecoration(new DividerItemDecoration(context));
